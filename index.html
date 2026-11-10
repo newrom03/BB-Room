@@ -37,13 +37,15 @@
             <div class="bg-white p-6 border-b flex justify-between items-center shadow-sm">
                 <div>
                     <h1 class="text-2xl font-bold mb-4">{{ activeCohort }} - {{ t.title }}</h1>
-                    <div class="flex gap-4 text-lg font-bold">
-                        <span class="bg-gray-100 px-4 py-2 rounded-lg shadow-sm border">{{ t.total }}: {{ stats.total }}</span>
+                    <div class="flex gap-3 text-sm md:text-base font-bold flex-wrap">
+                        <span class="bg-gray-100 px-4 py-2 rounded-lg shadow-sm border">{{ t.totalAll }}: {{ stats.totalAll }}</span>
+                        <span class="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg shadow-sm border border-blue-200">{{ t.totalRetained }}: {{ stats.totalRetained }}</span>
                         <span class="bg-green-100 text-green-800 px-4 py-2 rounded-lg shadow-sm border border-green-200">{{ t.registered }}: {{ stats.registered }}</span>
                         <span class="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg shadow-sm border border-yellow-200">{{ t.centerCard }}: {{ stats.centerCard }}</span>
+                        <span class="bg-red-100 text-red-800 px-4 py-2 rounded-lg shadow-sm border border-red-200">{{ t.dropped }}: {{ stats.dropped }}</span>
                     </div>
                 </div>
-                <button @click="toggleLang" class="px-5 py-3 border rounded-lg bg-gray-50 hover:bg-gray-100 text-base font-bold shadow-sm transition">
+                <button @click="toggleLang" class="px-5 py-3 border rounded-lg bg-gray-50 hover:bg-gray-100 text-base font-bold shadow-sm transition whitespace-nowrap">
                     {{ lang === 'ko' ? '🇪🇨 Español' : '🇰🇷 한국어' }}
                 </button>
             </div>
@@ -55,10 +57,10 @@
                         <thead>
                             <tr class="bg-gray-200 border-b text-gray-700 text-sm">
                                 <th class="p-3 border-r w-10 text-center">↕</th>
-                                <!-- 분리된 이름 헤더 -->
-                                <th class="p-3 border-r text-center w-24">{{ t.fruitName }}</th>
-                                <th class="p-3 border-r text-center w-24">{{ t.guideName }}</th>
-                                <th class="p-3 border-r text-center w-24">{{ t.teacherName }}</th>
+                                <!-- 이름 헤더 (넓이 대폭 확장: w-32 -> w-40, 최소너비 추가) -->
+                                <th class="p-3 border-r text-center w-40 min-w-[140px]">{{ t.fruitName }}</th>
+                                <th class="p-3 border-r text-center w-40 min-w-[140px]">{{ t.guideName }}</th>
+                                <th class="p-3 border-r text-center w-40 min-w-[140px]">{{ t.teacherName }}</th>
                                 
                                 <th class="p-3 border-r text-center w-28">{{ t.status }}</th>
                                 <!-- 날짜 (시간+출결) -->
@@ -66,7 +68,7 @@
                                     <div class="text-sm font-bold">11/{{ date }}</div>
                                     <div class="text-xs text-gray-500">{{ getDayName(date) }}</div>
                                 </th>
-                                <th class="p-3 text-left w-64">{{ t.memo }}</th>
+                                <th class="p-3 text-left w-64 min-w-[200px]">{{ t.memo }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -81,29 +83,29 @@
                                 
                                 <td class="p-2 border-r text-center text-gray-400 cursor-move hover:text-gray-700">☰</td>
                                 
-                                <!-- 분리된 이름 입력칸 -->
+                                <!-- 이름 입력칸 -->
                                 <td class="p-2 border-r">
-                                    <input v-model="student.fruitName" type="text" class="w-full p-1 border rounded text-center" :placeholder="t.fruitName">
+                                    <input v-model="student.fruitName" type="text" class="w-full p-2 border rounded text-center" :placeholder="t.fruitName">
                                 </td>
                                 <td class="p-2 border-r">
-                                    <input v-model="student.guideName" type="text" class="w-full p-1 border rounded text-center" :placeholder="t.guideName">
+                                    <input v-model="student.guideName" type="text" class="w-full p-2 border rounded text-center" :placeholder="t.guideName">
                                 </td>
                                 <td class="p-2 border-r">
-                                    <input v-model="student.teacherName" type="text" class="w-full p-1 border rounded text-center" :placeholder="t.teacherName">
+                                    <input v-model="student.teacherName" type="text" class="w-full p-2 border rounded text-center" :placeholder="t.teacherName">
                                 </td>
                                 
                                 <td class="p-2 border-r">
-                                    <select v-model="student.status" class="w-full p-1 border rounded text-sm outline-none font-medium text-center" :class="statusColor(student.status)">
+                                    <select v-model="student.status" class="w-full p-2 border rounded text-sm outline-none font-medium text-center" :class="statusColor(student.status)">
                                         <option value="">- {{ t.select }} -</option>
                                         <option value="수강신청">{{ t.registered }}</option>
                                         <option value="센터카드">{{ t.centerCard }}</option>
-                                        <option value="탈락">{{ t.dropped }}</option>
+                                        <option value="탈락">{{ t.droppedStatus }}</option>
                                     </select>
                                 </td>
                                 
                                 <!-- 날짜별 드롭다운 시간 및 출석 체크 -->
                                 <td v-for="date in novDates" :key="date" class="p-1 border-r text-center align-top bg-white">
-                                    <div class="flex flex-col gap-1">
+                                    <div class="flex flex-col gap-1 mt-1">
                                         <!-- 드롭다운 시간 선택 -->
                                         <select v-model="student.times[date]" class="w-full text-xs p-1 border rounded text-center outline-none focus:border-blue-500 bg-gray-50 cursor-pointer">
                                             <option value="">{{ t.timeSelect }}</option>
@@ -121,7 +123,7 @@
                                 </td>
                                 
                                 <td class="p-2">
-                                    <input v-model="student.memo" type="text" class="w-full p-1 border rounded" :placeholder="t.memoPlaceholder">
+                                    <input v-model="student.memo" type="text" class="w-full p-2 border rounded" :placeholder="t.memoPlaceholder">
                                 </td>
                             </tr>
                         </tbody>
@@ -145,10 +147,12 @@
                 cohortMenu: '기수 목록',
                 newCohortPlaceholder: '새 기수 입력 (예: 168-1기)',
                 addCohortBtn: '기수 추가',
-                total: '보유수',
+                totalAll: '전체 복음방수',
+                totalRetained: '보유수',
                 registered: '수강신청',
                 centerCard: '센터카드',
-                dropped: '탈락',
+                dropped: '탈락 종합',
+                droppedStatus: '탈락',
                 fruitName: '열매',
                 guideName: '인도자',
                 teacherName: '교사',
@@ -171,10 +175,12 @@
                 cohortMenu: 'Lista de Grupos',
                 newCohortPlaceholder: 'Nuevo grupo...',
                 addCohortBtn: 'Añadir Grupo',
-                total: 'Total',
-                registered: 'Inscrito',
-                centerCard: 'Tarjeta de Centro',
-                dropped: 'Retirado',
+                totalAll: 'Total Grupos',
+                totalRetained: 'Retenidos',
+                registered: 'Inscritos',
+                centerCard: 'Tarjeta Centro',
+                dropped: 'Total Retirados',
+                droppedStatus: 'Retirado',
                 fruitName: 'Estudiante',
                 guideName: 'Guía',
                 teacherName: 'Maestro',
@@ -232,16 +238,12 @@
                     const saved = localStorage.getItem('gospelRoomData');
                     if (saved) {
                         const parsed = JSON.parse(saved);
-                        // 데이터 마이그레이션 (이전 데이터의 name을 fruitName으로 이동)
                         parsed.cohorts.forEach(cohort => {
                             if (parsed.records[cohort]) {
                                 parsed.records[cohort].forEach(s => {
                                     if (!s.id) s.id = Date.now() + Math.random().toString(36).substr(2, 9);
                                     if (!s.times) s.times = {};
-                                    if (s.name) {
-                                        s.fruitName = s.name;
-                                        delete s.name;
-                                    }
+                                    if (s.name) { s.fruitName = s.name; delete s.name; }
                                     if (!s.fruitName) s.fruitName = '';
                                     if (!s.guideName) s.guideName = '';
                                     if (!s.teacherName) s.teacherName = '';
@@ -260,10 +262,15 @@
                 const stats = computed(() => {
                     const records = currentRecords.value;
                     const validRecords = records.filter(r => r.fruitName.trim() !== '' || r.guideName.trim() !== '' || r.teacherName.trim() !== '');
+                    const totalAllCount = validRecords.length;
+                    const droppedCount = validRecords.filter(r => r.status === '탈락').length;
+                    
                     return {
-                        total: validRecords.length,
+                        totalAll: totalAllCount,
+                        totalRetained: totalAllCount - droppedCount,
                         registered: validRecords.filter(r => r.status === '수강신청').length,
-                        centerCard: validRecords.filter(r => r.status === '센터카드').length
+                        centerCard: validRecords.filter(r => r.status === '센터카드').length,
+                        dropped: droppedCount
                     };
                 });
 
