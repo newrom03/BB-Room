@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>복음방 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="app" class="flex h-screen overflow-hidden">
+        <!-- 왼쪽 사이드바 (기수 관리) -->
+        <div class="w-64 bg-white border-r flex flex-col">
+            <div class="p-4 border-b font-bold text-lg flex justify-between items-center">
+                <span>{{ t.cohortMenu }}</span>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2">
+                <div v-for="(cohort, index) in data.cohorts" :key="index" 
+                     @click="activeCohort = cohort"
+                     class="p-3 mb-2 rounded cursor-pointer transition-colors font-medium"
+                     :class="activeCohort === cohort ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'">
+                    {{ cohort }}
+                </div>
+            </div>
+            <div class="p-4 border-t">
+                <input v-model="newCohortName" :placeholder="t.newCohortPlaceholder" class="w-full p-2 border rounded mb-2 text-sm" @keyup.enter="addCohort">
+                <button @click="addCohort" class="w-full bg-blue-600 text-white p-2 rounded text-sm hover:bg-blue-700">{{ t.addCohortBtn }}</button>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="flex-1 flex flex-col h-screen overflow-hidden">
+            <!-- 상단 대시보드 및 언어 변환 -->
+            <div class="bg-white p-4 border-b flex justify-between items-center shadow-sm">
+                <div>
+                    <h1 class="text-xl font-bold mb-2">{{ activeCohort }} - {{ t.title }}</h1>
+                    <div class="flex gap-4 text-sm font-medium">
+                        <span class="bg-gray-100 px-3 py-1 rounded">{{ t.total }}: {{ stats.total }}</span>
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded">{{ t.registered }}: {{ stats.registered }}</span>
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded">{{ t.centerCard }}: {{ stats.centerCard }}</span>
+                    </div>
+                </div>
+                <button @click="toggleLang" class="px-4 py-2 border rounded bg-gray-50 hover:bg-gray-100 text-sm font-bold">
+                    {{ lang === 'ko' ? '🇪🇨 Español' : '🇰🇷 한국어' }}
+                </button>
+            </div>
+
+            <!-- 데이터 테이블 -->
+            <div class="flex-1 overflow-auto p-4">
+                <div class="bg-white rounded shadow inline-block min-w-full">
+                    <table class="min-w-max w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 border-b">
+                                <th class="p-3 border-r text-left w-32">{{ t.name }}<br><span class="text-xs text-gray-500">(열매/인도자/교사)</span></th>
+                                <th class="p-3 border-r text-left w-32">{{ t.status }}</th>
+                                <!-- 11월 화목토 날짜 출력 (12일) -->
+                                <th v-for="date in novDates" :key="date" class="p-3 border-r text-center w-12 text-sm">
+                                    11/{{ date }}<br>
+                                    <span class="text-xs text-gray-500">{{ getDayName(date) }}</span>
+                                </th>
+                                <th class="p-3 text-left w-64">{{ t.memo }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(student, idx) in currentRecords" :key="idx" class="border-b hover:bg-gray-50">
+                                <td class="p-2 border-r">
+                                    <input v-model="student.name" type="text" class="w-full p-1 border rounded" :placeholder="t.name">
+                                </td>
+                                <td class="p-2 border-r">
+                                    <select v-model="student.status" class="w-full p-1 border rounded text-sm outline-none" :class="statusColor(student.status)">
+                                        <option value="">-- {{ t.select }} --</option>
+                                        <option value="수강신청">{{ t.registered }}</option>
+                                        <option value="센터카드">{{ t.centerCard }}</option>
+                                        <option value="탈락">{{ t.dropped }}</option>
+                                    </select>
+                                </td>
+                                <td v-for="date in novDates" :key="date" class="p-2 border-r text-center">
+                                    <input type="checkbox" v-model="student.attendance[date]" class="w-5 h-5 cursor-pointer accent-blue-600">
+                                </td>
+                                <td class="p-2">
+                                    <input v-model="student.memo" type="text" class="w-full p-1 border rounded" :placeholder="t.memoPlaceholder">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-4">
+                    <button @click="addStudent" class="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900 text-sm shadow">
+                        + {{ t.addStudentBtn }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted } = Vue;
+
+        const langDict = {
+            ko: {
+                title: '11월 복음방 출석부',
+                cohortMenu: '기수 목록',
+                newCohortPlaceholder: '새 기수 입력 (예: 168-1기)',
+                addCohortBtn: '기수 추가',
+                total: '보유수',
+                registered: '수강신청',
+                centerCard: '센터카드',
+                dropped: '탈락',
+                name: '이름',
+                status: '상태',
+                memo: '메모',
+                memoPlaceholder: '특이사항 입력...',
+                select: '선택',
+                addStudentBtn: '인원 1명 추가',
+                days: { Tue: '화', Thu: '목', Sat: '토' }
+            },
+            es: {
+                title: 'Registro de Noviembre',
+                cohortMenu: 'Lista de Grupos',
+                newCohortPlaceholder: 'Nuevo grupo...',
+                addCohortBtn: 'Añadir Grupo',
+                total: 'Total',
+                registered: 'Inscrito',
+                centerCard: 'Tarjeta de Centro',
+                dropped: 'Retirado',
+                name: 'Nombre',
+                status: 'Estado',
+                memo: 'Nota',
+                memoPlaceholder: 'Detalles adicionales...',
+                select: 'Elegir',
+                addStudentBtn: 'Añadir persona',
+                days: { Tue: 'Mar', Thu: 'Jue', Sat: 'Sáb' }
+            }
+        };
+
+        // 2026년 11월 화,목,토 날짜 데이터
+        const novDatesData = [
+            { d: 3, day: 'Tue' }, { d: 5, day: 'Thu' }, { d: 7, day: 'Sat' },
+            { d: 10, day: 'Tue' }, { d: 12, day: 'Thu' }, { d: 14, day: 'Sat' },
+            { d: 17, day: 'Tue' }, { d: 19, day: 'Thu' }, { d: 21, day: 'Sat' },
+            { d: 24, day: 'Tue' }, { d: 26, day: 'Thu' }, { d: 28, day: 'Sat' }
+        ];
+
+        createApp({
+            setup() {
+                const lang = ref('ko');
+                const t = computed(() => langDict[lang.value]);
+                const novDates = novDatesData.map(obj => obj.d);
+
+                const getDayName = (date) => {
+                    const dayType = novDatesData.find(obj => obj.d === date).day;
+                    return t.value.days[dayType];
+                };
+
+                const data = ref({
+                    cohorts: ['167-1기'],
+                    records: {}
+                });
+                
+                const activeCohort = ref('167-1기');
+                const newCohortName = ref('');
+
+                const createEmptyStudent = () => ({
+                    id: Date.now() + Math.random(),
+                    name: '',
+                    status: '',
+                    attendance: {},
+                    memo: ''
+                });
+
+                // 초기 데이터 5칸 생성
+                const initData = () => {
+                    const saved = localStorage.getItem('gospelRoomData');
+                    if (saved) {
+                        data.value = JSON.parse(saved);
+                        if(data.value.cohorts.length > 0) {
+                            activeCohort.value = data.value.cohorts[0];
+                        }
+                    } else {
+                        data.value.records['167-1기'] = Array.from({ length: 5 }, createEmptyStudent);
+                    }
+                };
+
+                const currentRecords = computed(() => {
+                    return data.value.records[activeCohort.value] || [];
+                });
+
+                const stats = computed(() => {
+                    const records = currentRecords.value;
+                    const validRecords = records.filter(r => r.name.trim() !== '');
+                    return {
+                        total: validRecords.length,
+                        registered: validRecords.filter(r => r.status === '수강신청').length,
+                        centerCard: validRecords.filter(r => r.status === '센터카드').length
+                    };
+                });
+
+                const addCohort = () => {
+                    const name = newCohortName.value.trim();
+                    if (name && !data.value.cohorts.includes(name)) {
+                        data.value.cohorts.push(name);
+                        data.value.records[name] = Array.from({ length: 5 }, createEmptyStudent);
+                        activeCohort.value = name;
+                        newCohortName.value = '';
+                    }
+                };
+
+                const addStudent = () => {
+                    if (!data.value.records[activeCohort.value]) {
+                        data.value.records[activeCohort.value] = [];
+                    }
+                    data.value.records[activeCohort.value].push(createEmptyStudent());
+                };
+
+                const toggleLang = () => {
+                    lang.value = lang.value === 'ko' ? 'es' : 'ko';
+                };
+
+                const statusColor = (status) => {
+                    if (status === '수강신청') return 'bg-green-100 text-green-800 border-green-300';
+                    if (status === '센터카드') return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                    if (status === '탈락') return 'bg-red-100 text-red-800 border-red-300';
+                    return 'bg-white';
+                };
+
+                watch(data, (newVal) => {
+                    localStorage.setItem('gospelRoomData', JSON.stringify(newVal));
+                }, { deep: true });
+
+                onMounted(() => {
+                    initData();
+                });
+
+                return {
+                    lang, t, data, activeCohort, newCohortName, novDates,
+                    currentRecords, stats,
+                    addCohort, addStudent, toggleLang, getDayName, statusColor
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
